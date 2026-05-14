@@ -89,7 +89,7 @@ func discoverRepos(roots []string) ([]string, error) {
 		cleanRoot := filepath.Clean(root)
 		err := filepath.WalkDir(cleanRoot, func(path string, d os.DirEntry, walkErr error) error {
 			if walkErr != nil {
-				return nil
+				return nil //nolint:nilerr // skip unreadable entries and keep walking
 			}
 			if !d.IsDir() {
 				return nil
