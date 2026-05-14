@@ -27,7 +27,7 @@ func TestCollectGitFindsRepo(t *testing.T) {
 	runGit(t, repo, "add", "README.md")
 	runGit(t, repo, "commit", "-m", "initial")
 
-	result, err := CollectGit(context.Background(), []string{root}, nil, 1)
+	result, err := CollectGit(context.Background(), GitOptions{Roots: []string{root}, RunID: 1})
 	if err != nil {
 		t.Fatal(err)
 	}

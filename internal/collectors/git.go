@@ -1,7 +1,6 @@
 package collectors
 
 import (
-	"bufio"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -17,8 +16,20 @@ import (
 	"github.com/fireharp/tinkershop/internal/storage"
 )
 
-func CollectGit(ctx context.Context, roots []string, policies []policy.Rule, runID int64) (Result, error) {
-	repos, err := discoverRepos(roots)
+type GitOptions struct {
+	Roots    []string
+	Policies []policy.Rule
+	RunID    int64
+	Since    *time.Time
+}
+
+type dirtyState struct {
+	Count     int
+	LastMTime int64
+}
+
+func CollectGit(ctx context.Context, opts GitOptions) (Result, error) {
+	repos, err := discoverRepos(opts.Roots)
 	if err != nil {
 		return Result{}, err
 	}
@@ -26,14 +37,19 @@ func CollectGit(ctx context.Context, roots []string, policies []policy.Rule, run
 	now := time.Now().UTC()
 	result := Result{}
 	for _, repo := range repos {
-		decision := policy.Evaluate(repo, policies)
+		dirty := gitDirtyState(ctx, repo)
+		lastCommit := gitLastCommit(ctx, repo)
+		lastActivity := maxInt64(lastCommit, dirty.LastMTime)
+		if opts.Since != nil && lastActivity < opts.Since.Unix() {
+			continue
+		}
+
+		decision := policy.Evaluate(repo, opts.Policies)
 		name := filepath.Base(repo)
 		displayName := decision.DisplayName
 		if displayName == "" {
 			displayName = name
 		}
-		dirtyCount := gitDirtyCount(ctx, repo)
-		lastCommit := gitLastCommit(ctx, repo)
 		remoteURL := gitRemoteURL(ctx, repo)
 
 		project := storage.Project{
@@ -43,19 +59,19 @@ func CollectGit(ctx context.Context, roots []string, policies []policy.Rule, run
 			DisplayName:    displayName,
 			RemoteURL:      remoteURL,
 			PolicyState:    string(decision.State),
-			DirtyCount:     dirtyCount,
+			DirtyCount:     dirty.Count,
 			LastCommitUnix: lastCommit,
 			UpdatedAt:      now,
 		}
 		result.Projects = append(result.Projects, project)
 		result.Observations = append(result.Observations, storage.Observation{
-			RunID:      runID,
+			RunID:      opts.RunID,
 			ProjectID:  project.ID,
 			Source:     "git",
 			Kind:       "repo_activity",
 			ObservedAt: now,
 			Title:      displayName,
-			Summary:    fmt.Sprintf("dirty=%d last_commit_unix=%d", dirtyCount, lastCommit),
+			Summary:    fmt.Sprintf("dirty=%d last_commit_unix=%d last_dirty_mtime=%d", dirty.Count, lastCommit, dirty.LastMTime),
 			Confidence: 0.8,
 		})
 	}
@@ -71,8 +87,8 @@ func discoverRepos(roots []string) ([]string, error) {
 			continue
 		}
 		cleanRoot := filepath.Clean(root)
-		err := filepath.WalkDir(cleanRoot, func(path string, d os.DirEntry, err error) error {
-			if err != nil {
+		err := filepath.WalkDir(cleanRoot, func(path string, d os.DirEntry, walkErr error) error {
+			if walkErr != nil {
 				return nil
 			}
 			if !d.IsDir() {
@@ -98,19 +114,43 @@ func discoverRepos(roots []string) ([]string, error) {
 	return repos, nil
 }
 
-func gitDirtyCount(ctx context.Context, repo string) int {
-	out, err := git(ctx, repo, "status", "--porcelain")
+func gitDirtyState(ctx context.Context, repo string) dirtyState {
+	out, err := git(ctx, repo, "status", "--porcelain", "-z")
 	if err != nil {
-		return 0
+		return dirtyState{}
 	}
-	scanner := bufio.NewScanner(strings.NewReader(out))
-	count := 0
-	for scanner.Scan() {
-		if strings.TrimSpace(scanner.Text()) != "" {
-			count++
+	if out == "" {
+		return dirtyState{}
+	}
+
+	entries := strings.Split(strings.TrimRight(out, "\x00"), "\x00")
+	state := dirtyState{}
+	for i := 0; i < len(entries); i++ {
+		entry := entries[i]
+		if len(entry) < 4 {
+			continue
+		}
+
+		state.Count++
+		status := entry[:2]
+		relPath := entry[3:]
+		if strings.HasPrefix(status, "R") || strings.HasPrefix(status, "C") {
+			i++
+		}
+
+		fullPath := filepath.Join(repo, relPath)
+		if info, err := os.Stat(fullPath); err == nil && info.ModTime().Unix() > state.LastMTime {
+			state.LastMTime = info.ModTime().Unix()
 		}
 	}
-	return count
+
+	if state.Count > 0 && state.LastMTime == 0 {
+		if info, err := os.Stat(filepath.Join(repo, ".git", "index")); err == nil {
+			state.LastMTime = info.ModTime().Unix()
+		}
+	}
+
+	return state
 }
 
 func gitLastCommit(ctx context.Context, repo string) int64 {
@@ -146,4 +186,11 @@ func git(ctx context.Context, repo string, args ...string) (string, error) {
 func projectID(path string) string {
 	sum := sha256.Sum256([]byte(filepath.Clean(path)))
 	return hex.EncodeToString(sum[:])
+}
+
+func maxInt64(a, b int64) int64 {
+	if a > b {
+		return a
+	}
+	return b
 }

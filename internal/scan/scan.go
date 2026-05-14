@@ -15,6 +15,7 @@ type Summary struct {
 	RunID            int64
 	ProjectCount     int
 	ObservationCount int
+	Since            *time.Time
 }
 
 func Run(ctx context.Context, cfg config.Config) (Summary, error) {
@@ -22,11 +23,16 @@ func Run(ctx context.Context, cfg config.Config) (Summary, error) {
 		return Summary{}, err
 	}
 
+	since, err := cfg.SinceTime(time.Now())
+	if err != nil {
+		return Summary{}, err
+	}
+
 	store, err := storage.Open(cfg.DBPath)
 	if err != nil {
 		return Summary{}, err
 	}
-	defer store.Close()
+	defer func() { _ = store.Close() }()
 
 	if err := store.Migrate(ctx); err != nil {
 		return Summary{}, err
@@ -51,7 +57,12 @@ func Run(ctx context.Context, cfg config.Config) (Summary, error) {
 		})
 	}
 
-	result, err := collectors.CollectGit(ctx, cfg.Roots, cfg.Policies, runID)
+	result, err := collectors.CollectGit(ctx, collectors.GitOptions{
+		Roots:    cfg.Roots,
+		Policies: cfg.Policies,
+		RunID:    runID,
+		Since:    since,
+	})
 	if err != nil {
 		_ = store.FinishRun(ctx, runID, "error", err.Error(), time.Now().UTC())
 		return Summary{}, err
@@ -74,8 +85,13 @@ func Run(ctx context.Context, cfg config.Config) (Summary, error) {
 		RunID:            runID,
 		ProjectCount:     len(result.Projects),
 		ObservationCount: len(result.Observations),
+		Since:            since,
 	}
-	if err := store.FinishRun(ctx, runID, "ok", fmt.Sprintf("%d projects, %d observations", summary.ProjectCount, summary.ObservationCount), time.Now().UTC()); err != nil {
+	summaryText := fmt.Sprintf("%d projects, %d observations", summary.ProjectCount, summary.ObservationCount)
+	if since != nil {
+		summaryText = fmt.Sprintf("%s since %s", summaryText, since.In(time.Local).Format("2006-01-02"))
+	}
+	if err := store.FinishRun(ctx, runID, "ok", summaryText, time.Now().UTC()); err != nil {
 		return Summary{}, err
 	}
 	return summary, nil

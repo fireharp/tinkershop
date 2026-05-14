@@ -38,12 +38,13 @@ func runScan(ctx context.Context, args []string) error {
 	configPath := fs.String("config", "", "path to JSON config")
 	dbPath := fs.String("db", "", "SQLite path override")
 	blobDir := fs.String("blob-dir", "", "blob directory override")
+	since := fs.String("since", "", "only include projects active since YYYY-MM-DD, RFC3339, or a window like 14d")
 	var roots stringList
 	fs.Var(&roots, "root", "scan root; repeatable")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	cfg, err := load(*configPath, *dbPath, *blobDir, roots)
+	cfg, err := load(*configPath, *dbPath, *blobDir, *since, roots)
 	if err != nil {
 		return err
 	}
@@ -60,13 +61,14 @@ func runDaemon(ctx context.Context, args []string) error {
 	configPath := fs.String("config", "", "path to JSON config")
 	dbPath := fs.String("db", "", "SQLite path override")
 	blobDir := fs.String("blob-dir", "", "blob directory override")
+	since := fs.String("since", "", "only include projects active since YYYY-MM-DD, RFC3339, or a window like 14d")
 	interval := fs.Duration("interval", 12*time.Hour, "scan interval")
 	var roots stringList
 	fs.Var(&roots, "root", "scan root; repeatable")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	cfg, err := load(*configPath, *dbPath, *blobDir, roots)
+	cfg, err := load(*configPath, *dbPath, *blobDir, *since, roots)
 	if err != nil {
 		return err
 	}
@@ -78,13 +80,14 @@ func runServe(ctx context.Context, args []string) error {
 	configPath := fs.String("config", "", "path to JSON config")
 	dbPath := fs.String("db", "", "SQLite path override")
 	blobDir := fs.String("blob-dir", "", "blob directory override")
+	since := fs.String("since", "", "accepted for config parity; serve does not scan")
 	addr := fs.String("addr", "127.0.0.1:8739", "listen address")
 	var roots stringList
 	fs.Var(&roots, "root", "scan root; repeatable")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	cfg, err := load(*configPath, *dbPath, *blobDir, roots)
+	cfg, err := load(*configPath, *dbPath, *blobDir, *since, roots)
 	if err != nil {
 		return err
 	}
@@ -114,7 +117,7 @@ func runPolicy(args []string) error {
 	return nil
 }
 
-func load(configPath, dbPath, blobDir string, roots []string) (config.Config, error) {
+func load(configPath, dbPath, blobDir, since string, roots []string) (config.Config, error) {
 	cfg, err := config.Load(configPath)
 	if err != nil {
 		return config.Config{}, err
@@ -124,6 +127,9 @@ func load(configPath, dbPath, blobDir string, roots []string) (config.Config, er
 	}
 	if blobDir != "" {
 		cfg.BlobDir = blobDir
+	}
+	if since != "" {
+		cfg.Since = since
 	}
 	if len(roots) > 0 {
 		cfg.Roots = roots

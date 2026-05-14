@@ -13,6 +13,8 @@ own view.
 ```bash
 go test ./...
 go run ./cmd/tinkershop scan
+go run ./cmd/tinkershop scan -since 2026-05-01
+go run ./cmd/tinkershop scan -since 14d
 go run ./cmd/tinkershopd -interval 12h
 go run ./cmd/tinkershop serve -addr 127.0.0.1:8739
 ```
@@ -22,6 +24,11 @@ Default storage:
 - SQLite: `~/.local/share/tinkershop/tinkershop.sqlite`
 - Blobs: `~/.local/share/tinkershop/blobs`
 - Scan root: `~/Prog`
+
+`-since` filters projects by activity. Calendar dates such as `2026-05-01`
+start at local midnight. Rolling windows such as `14d` mean “same local time,
+14 days ago.” Git activity currently means latest commit time or latest modified
+dirty/untracked file time.
 
 ## Design
 
