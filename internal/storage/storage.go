@@ -148,7 +148,7 @@ order by updated_at desc, name asc
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var projects []Project
 	for rows.Next() {
@@ -176,7 +176,7 @@ limit ?
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var runs []Run
 	for rows.Next() {

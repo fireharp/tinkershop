@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"time"
 
@@ -15,7 +16,7 @@ func ListenAndServe(ctx context.Context, cfg config.Config, addr string) error {
 	if err != nil {
 		return err
 	}
-	defer store.Close()
+	defer func() { _ = store.Close() }()
 	if err := store.Migrate(ctx); err != nil {
 		return err
 	}
@@ -41,7 +42,11 @@ func ListenAndServe(ctx context.Context, cfg config.Config, addr string) error {
 		writeJSON(w, runs)
 	})
 
-	srv := &http.Server{Addr: addr, Handler: mux}
+	srv := &http.Server{
+		Addr:              addr,
+		Handler:           mux,
+		ReadHeaderTimeout: 10 * time.Second,
+	}
 	errCh := make(chan error, 1)
 	go func() {
 		errCh <- srv.ListenAndServe()
@@ -53,7 +58,7 @@ func ListenAndServe(ctx context.Context, cfg config.Config, addr string) error {
 		defer cancel()
 		return srv.Shutdown(shutdownCtx)
 	case err := <-errCh:
-		if err == http.ErrServerClosed {
+		if errors.Is(err, http.ErrServerClosed) {
 			return nil
 		}
 		return err

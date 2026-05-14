@@ -12,6 +12,8 @@ import (
 	"time"
 )
 
+const compressionGzip = "gzip"
+
 type Store struct {
 	Root        string
 	Compression string
@@ -36,7 +38,7 @@ func (s Store) Put(ctx context.Context, mediaType string, data []byte) (Meta, er
 
 	compression := s.Compression
 	if compression == "" {
-		compression = "gzip"
+		compression = compressionGzip
 	}
 
 	sum := sha256.Sum256(data)
@@ -44,7 +46,7 @@ func (s Store) Put(ctx context.Context, mediaType string, data []byte) (Meta, er
 
 	stored := data
 	ext := ".blob"
-	if compression == "gzip" {
+	if compression == compressionGzip {
 		var buf bytes.Buffer
 		zw := gzip.NewWriter(&buf)
 		if _, err := zw.Write(data); err != nil {
@@ -85,7 +87,7 @@ func (s Store) Put(ctx context.Context, mediaType string, data []byte) (Meta, er
 		return Meta{}, err
 	}
 	tmpPath := tmp.Name()
-	defer os.Remove(tmpPath)
+	defer func() { _ = os.Remove(tmpPath) }()
 
 	if _, err := tmp.Write(stored); err != nil {
 		_ = tmp.Close()
