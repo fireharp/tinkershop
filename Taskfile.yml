@@ -1,0 +1,42 @@
+version: "3"
+
+tasks:
+  default:
+    cmds:
+      - task --list
+    silent: true
+
+  fmt:
+    desc: Format Go code
+    cmds:
+      - gofmt -s -w .
+      - goimports -w . 2>/dev/null || true
+
+  vet:
+    desc: Run go vet
+    cmds:
+      - go vet ./...
+
+  lint:
+    desc: Run golangci-lint
+    cmds:
+      - golangci-lint run ./...
+
+  test:
+    desc: Run tests
+    cmds:
+      - go test ./...
+
+  build:
+    desc: Build CLI and daemon binaries
+    cmds:
+      - go build -o bin/tinkershop ./cmd/tinkershop
+      - go build -o bin/tinkershopd ./cmd/tinkershopd
+
+  ci:
+    desc: Run the full set of checks (used pre-push and in CI)
+    cmds:
+      - task: fmt
+      - task: vet
+      - task: lint
+      - task: test

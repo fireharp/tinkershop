@@ -1,0 +1,19 @@
+pre-commit:
+  parallel: true
+  commands:
+    fmt:
+      glob: "*.go"
+      run: gofmt -s -l {staged_files} | tee /dev/stderr | (! read)
+    vet:
+      glob: "*.go"
+      run: go vet ./...
+
+pre-push:
+  piped: true
+  commands:
+    lint:
+      priority: 1
+      run: task lint
+    test:
+      priority: 2
+      run: task test

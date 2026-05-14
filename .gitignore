@@ -1,0 +1,19 @@
+/tinkershop
+/tinkershopd
+/bin/
+/dist/
+
+*.test
+*.out
+coverage.*
+
+# IDE / OS
+.DS_Store
+.idea/
+.vscode/
+
+# Local dev databases / scratch
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
