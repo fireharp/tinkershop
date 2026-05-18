@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.3](https://github.com/fireharp/tinkershop/compare/v0.2.2...v0.2.3) (2026-05-18)
+
+
+### Bug Fixes
+
+* write portable release checksums ([d18c72b](https://github.com/fireharp/tinkershop/commit/d18c72bc2ae7ac46a279dc47d83e131b219b7410))
+
 ## [0.2.2](https://github.com/fireharp/tinkershop/compare/v0.2.1...v0.2.2) (2026-05-18)
 
 
