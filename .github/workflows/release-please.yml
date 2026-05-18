@@ -38,10 +38,6 @@ jobs:
             goos: linux
             goarch: amd64
             archive: tar.gz
-          - runner: macos-15-large
-            goos: darwin
-            goarch: amd64
-            archive: tar.gz
           - runner: macos-15
             goos: darwin
             goarch: arm64
