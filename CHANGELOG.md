@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.2](https://github.com/fireharp/tinkershop/compare/v0.2.1...v0.2.2) (2026-05-18)
+
+
+### Bug Fixes
+
+* remove paid macOS release runner ([7042050](https://github.com/fireharp/tinkershop/commit/7042050ac1b335e327b6a3de6b1b1fc4854e5a85))
+
 ## [0.2.1](https://github.com/fireharp/tinkershop/compare/v0.2.0...v0.2.1) (2026-05-18)
 
 
